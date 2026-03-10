@@ -207,6 +207,269 @@
         .hidden {
             display: none;
         }
+
+        /* SLIDER */
+
+.slider-card{
+text-align:center;
+}
+
+.slider{
+display:flex;
+align-items:center;
+justify-content:center;
+gap:20px;
+}
+
+.slide-btn{
+border:none;
+background:var(--primary);
+color:white;
+font-size:20px;
+width:40px;
+height:40px;
+border-radius:50%;
+cursor:pointer;
+}
+
+.fighter-card{
+width:220px;
+background:#f9fafb;
+border-radius:12px;
+padding:15px;
+box-shadow:0 5px 15px rgba(0,0,0,0.1);
+}
+
+.fighter-img{
+width:100%;
+height:180px;
+object-fit:cover;
+border-radius:10px;
+margin-bottom:10px;
+}
+
+/*.fighter-stats{
+text-align:left;
+font-size:14px;
+}
+
+.fighter-stats p{
+margin:4px 0;
+ }*/
+
+.slider-section{
+margin-top:20px;
+padding-top:15px;
+border-top:1px solid var(--border);
+}
+
+.slider-title{
+margin-bottom:12px;
+font-size:1.2rem;
+font-weight:700;
+}
+
+.slider{
+display:flex;
+align-items:center;
+justify-content:center;
+gap:20px;
+}
+
+.slide-btn{
+border:none;
+background:var(--primary);
+color:white;
+width:36px;
+height:36px;
+border-radius:50%;
+cursor:pointer;
+font-size:18px;
+}
+
+.fighter-card{
+width:220px;
+background:#f9fafb;
+border-radius:12px;
+padding:15px;
+text-align:center;
+box-shadow:0 6px 16px rgba(0,0,0,0.08);
+}
+
+.fighter-img{
+width:100%;
+height:170px;
+object-fit:cover;
+border-radius:10px;
+margin-bottom:8px;
+}
+
+.fighter-stats{
+display:flex;
+flex-direction:column;
+gap:8px;
+margin-top:10px;
+}
+
+.stat-top{
+display:flex;
+justify-content:space-between;
+font-size:13px;
+font-weight:600;
+}
+
+.bar{
+height:8px;
+background:#e5e7eb;
+border-radius:20px;
+overflow:hidden;
+}
+
+.fill{
+height:100%;
+transition:width .4s ease;
+}
+
+.hp{background:#22c55e;}
+.damage{background:#ef4444;}
+.range{background:#3b82f6;}
+.cooldown{background:#f59e0b;}
+
+.role{
+margin-top:8px;
+font-weight:600;
+color:#374151;
+}
+    /* AUCTION 3 COLUMN LAYOUT */
+
+.auction-layout{
+display:grid;
+grid-template-columns: 1fr 1.2fr 1fr;
+align-items:center;
+gap:40px;
+margin-top:20px;
+position:relative;
+}
+
+/* IMAGE PANEL */
+
+.character-image-panel{
+text-align:center;
+}
+
+.character-large-img{
+width:260px;
+height:320px;
+object-fit:cover;
+border-radius:14px;
+box-shadow:0 10px 25px rgba(0,0,0,0.15);
+}
+
+.character-name{
+margin-top:10px;
+font-size:1.5rem;
+font-weight:800;
+}
+
+.role{
+margin-top:6px;
+font-weight:600;
+color:#374151;
+}
+
+/* STATS PANEL */
+
+.character-stats-panel{
+display:flex;
+flex-direction:column;
+gap:22px;
+}
+
+.big-stat{
+width:100%;
+}
+
+.stat-head{
+display:flex;
+justify-content:space-between;
+font-weight:700;
+font-size:18px;
+margin-bottom:6px;
+}
+
+.big-bar{
+height:16px;
+background:#e5e7eb;
+border-radius:20px;
+overflow:hidden;
+}
+
+.fill{
+height:100%;
+transition:width .4s ease;
+}
+
+/* TEAM DASHBOARD */
+
+.team-dashboard{
+background:#f9fafb;
+border-radius:14px;
+padding:16px;
+box-shadow:0 6px 16px rgba(0,0,0,0.08);
+}
+
+.dashboard-title{
+margin-top:0;
+margin-bottom:10px;
+font-size:18px;
+font-weight:800;
+}
+
+.team-balance{
+font-size:16px;
+font-weight:700;
+margin-bottom:12px;
+color:#7C3AED;
+}
+
+.team-characters{
+display:flex;
+flex-direction:column;
+gap:10px;
+}
+
+.team-char{
+display:flex;
+align-items:center;
+gap:8px;
+background:white;
+padding:6px;
+border-radius:8px;
+border:1px solid #e5e7eb;
+}
+
+.team-char img{
+width:35px;
+height:35px;
+border-radius:6px;
+object-fit:cover;
+}
+
+/* SLIDER BUTTON POSITION */
+
+.left-btn{
+position:absolute;
+left:-40px;
+top:50%;
+transform:translateY(-50%);
+}
+
+.right-btn{
+position:absolute;
+right:-40px;
+top:50%;
+transform:translateY(-50%);
+}
     </style>
 </head>
 <body>
@@ -264,6 +527,108 @@
             <p class="label">Current Lot</p>
             <p id="current-lot" class="value">{{ $isActive ? 'Auction is live now' : 'No active auction yet' }}</p>
 
+
+
+    <!-- Character Auction Panel -->
+<div class="slider-section">
+
+<h3 class="slider-title">Auction Character</h3>
+
+<div class="auction-layout">
+
+    
+
+    <!-- LEFT : CHARACTER IMAGE -->
+    <div class="character-image-panel">
+
+    <img id="cardImage" src="/images/fighter1.png" class="character-large-img">
+
+    <h2 id="cardName" class="character-name">Blaze Knight</h2>
+
+    <p class="role">Role: <span id="role">Fighter</span></p>
+
+    @if ($isAdmin)
+    <div class="slider-controls">
+        <button class="slide-btn" onclick="prevSlide()">⬅</button>
+        <button class="slide-btn" onclick="nextSlide()">➡</button>
+    </div>
+    @endif
+
+</div>
+
+
+    <!-- CENTER : CHARACTER STATS -->
+    <div class="character-stats-panel">
+
+        <div class="big-stat">
+            <div class="stat-head">
+                <span>HP</span>
+                <span id="hpValue">90</span>
+            </div>
+            <div class="big-bar">
+                <div id="hpBar" class="fill hp"></div>
+            </div>
+        </div>
+
+        <div class="big-stat">
+            <div class="stat-head">
+                <span>Damage</span>
+                <span id="damageValue">80</span>
+            </div>
+            <div class="big-bar">
+                <div id="damageBar" class="fill damage"></div>
+            </div>
+        </div>
+
+        <div class="big-stat">
+            <div class="stat-head">
+                <span>Range</span>
+                <span id="rangeValue">60</span>
+            </div>
+            <div class="big-bar">
+                <div id="rangeBar" class="fill range"></div>
+            </div>
+        </div>
+
+        <div class="big-stat">
+            <div class="stat-head">
+                <span>Cooldown</span>
+                <span id="cooldownValue">40</span>
+            </div>
+            <div class="big-bar">
+                <div id="cooldownBar" class="fill cooldown"></div>
+            </div>
+        </div>
+
+    </div>
+
+
+    <!-- RIGHT : TEAM DASHBOARD -->
+    <div class="team-dashboard">
+
+        <h3 class="dashboard-title">Your Team</h3>
+
+        <div class="team-balance">
+            Balance: <span id="teamBalance">5000</span> Coins
+        </div>
+
+        <div class="team-characters" id="teamCharacters">
+
+            <div class="team-char">
+                <img src="/images/fighter1.png">
+                <span>Blaze Knight</span>
+            </div>
+
+        </div>
+
+    </div>
+
+    
+</div>
+
+</div>
+
+
             @if (!$isAdmin)
                 <div class="bottom-actions">
                     <button id="user-bid-btn" class="bid-btn {{ $isBidActive ? '' : 'hidden' }}" type="button">Bid Now</button>
@@ -271,6 +636,7 @@
             @endif
         </div>
     </div>
+    
 
     <script>
         const statusEl = document.getElementById('auction-status');
@@ -404,6 +770,101 @@
         setStatusUI({{ $isActive ? 'true' : 'false' }}, {{ $isBidActive ? 'true' : 'false' }});
         fetchStatus();
         setInterval(fetchStatus, 2000);
+
+        /* Fighter Slider */
+
+const fighters = [
+
+{
+name:"Blaze Knight",
+img:"/images/fighter1.png",
+hp:90,
+damage:80,
+range:60,
+cooldown:40,
+role:"Fighter"
+},
+
+{
+name:"Shadow Assassin",
+img:"/images/fighter2.png",
+hp:70,
+damage:95,
+range:40,
+cooldown:60,
+role:"Assassin"
+},
+
+{
+name:"Storm Archer",
+img:"/images/fighter3.png",
+hp:75,
+damage:70,
+range:90,
+cooldown:50,
+role:"Ranger"
+},
+
+{
+name:"Iron Guardian",
+img:"/images/fighter4.png",
+hp:100,
+damage:55,
+range:35,
+cooldown:65,
+role:"Tank"
+}
+
+];
+
+let currentFighter = 0;
+
+function updateFighter(){
+
+const fighter = fighters[currentFighter];
+
+document.getElementById("cardImage").src = fighter.img;
+document.getElementById("cardName").textContent = fighter.name;
+
+document.getElementById("hpValue").textContent = fighter.hp;
+document.getElementById("damageValue").textContent = fighter.damage;
+document.getElementById("rangeValue").textContent = fighter.range;
+document.getElementById("cooldownValue").textContent = fighter.cooldown;
+
+document.getElementById("role").textContent = fighter.role;
+
+document.getElementById("hpBar").style.width = fighter.hp + "%";
+document.getElementById("damageBar").style.width = fighter.damage + "%";
+document.getElementById("rangeBar").style.width = fighter.range + "%";
+document.getElementById("cooldownBar").style.width = fighter.cooldown + "%";
+
+}
+
+function nextSlide(){
+
+currentFighter++;
+
+if(currentFighter >= fighters.length){
+currentFighter = 0;
+}
+
+updateFighter();
+
+}
+
+function prevSlide(){
+
+currentFighter--;
+
+if(currentFighter < 0){
+currentFighter = fighters.length - 1;
+}
+
+updateFighter();
+
+}
+
+updateFighter();
     </script>
 </body>
 </html>
