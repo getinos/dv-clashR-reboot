@@ -180,6 +180,7 @@
                 <a href="#" class="nav-link">Characters</a>
                 <a href="{{ route('auction') }}" class="nav-link">Auctions</a>
                 <a href="#" class="nav-link">Leaderboard</a>
+                <a href="{{ route('battleground') ?? '#' }}" class="nav-link">Battle Ground</a>
             </nav>
         </div>
     </header>

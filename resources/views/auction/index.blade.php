@@ -667,7 +667,9 @@
 
             @if (!$isAdmin)
                 <div class="bottom-actions">
-                    <button id="user-bid-btn" class="bid-btn {{ $isBidActive ? '' : 'hidden' }}" type="button">Bid Now</button>
+                    <button class="bid-amount-btn bid-btn {{ $isBidActive ? '' : 'hidden' }}" data-amount="25" type="button">+25</button>
+                    <button class="bid-amount-btn bid-btn {{ $isBidActive ? '' : 'hidden' }}" data-amount="50" type="button">+50</button>
+                    <button class="bid-amount-btn bid-btn {{ $isBidActive ? '' : 'hidden' }}" data-amount="75" type="button">+75</button>
                 </div>
             @endif
         </div>
@@ -768,6 +770,7 @@
         const closeBidBtn = document.getElementById('close-bid-btn');
         const bidStatusEl = document.getElementById('bid-status');
         const userBidBtn = document.getElementById('user-bid-btn');
+        const bidAmountButtons = document.querySelectorAll('.bid-amount-btn');
         const sellCharacterBtn = document.getElementById('sell-character-btn');
         const timerWrapEl = document.getElementById('bid-timer-wrap');
         const timerNumEl = document.getElementById('bid-timer-num');
@@ -988,7 +991,13 @@
             }
 
             if (userBidBtn) {
-                userBidBtn.classList.toggle('hidden', !isBidActive);
+                userBidBtn.classList.toggle('hidden', true); // hide Legacy button
+            }
+
+            if (bidAmountButtons && bidAmountButtons.length) {
+                bidAmountButtons.forEach(btn => {
+                    btn.classList.toggle('hidden', !isBidActive);
+                });
             }
 
             // Timer: start when bid opens (only if not already counting), stop when bid closes
@@ -1080,43 +1089,48 @@
             });
         }
 
-        if (userBidBtn) {
-            userBidBtn.addEventListener('click', async () => {
-                try {
-                    // optimistic UI update so bid feels instant
-                    if (charPriceEl) {
-                        const curr = parseInt(charPriceEl.textContent) || 0;
-                        const newVal = curr + 100;
-                        charPriceEl.textContent = newVal;
-                        if (currentCharacter) currentCharacter.base_price = newVal;
-                    }
-                    userBidBtn.disabled = true;
-                    userBidBtn.textContent = 'Bidding...';
-                    const response = await fetch(bidUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': csrfToken,
-                            'X-Requested-With': 'XMLHttpRequest',
-                        },
-                        body: JSON.stringify({}),
-                    });
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (charPriceEl && data.new_price !== undefined) {
-                            charPriceEl.textContent = data.new_price;
-                            if (currentCharacter) currentCharacter.base_price = data.new_price;
+        if (bidAmountButtons && bidAmountButtons.length) {
+            bidAmountButtons.forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const amount = Number(btn.dataset.amount) || 0;
+                    if (!amount) return;
+
+                    try {
+                        // optimistic UI update so bid feels instant
+                        if (charPriceEl) {
+                            const curr = parseInt(charPriceEl.textContent) || 0;
+                            const newVal = curr + amount;
+                            charPriceEl.textContent = newVal;
+                            if (currentCharacter) currentCharacter.base_price = newVal;
                         }
-                        if (charLastTeamEl && data.team_name) {
-                            charLastTeamEl.textContent = `Last bid: ${data.team_name}`;
+                        btn.disabled = true;
+                        btn.textContent = 'Bidding...';
+                        const response = await fetch(bidUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': csrfToken,
+                                'X-Requested-With': 'XMLHttpRequest',
+                            },
+                            body: JSON.stringify({ amount }),
+                        });
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (charPriceEl && data.new_price !== undefined) {
+                                charPriceEl.textContent = data.new_price;
+                                if (currentCharacter) currentCharacter.base_price = data.new_price;
+                            }
+                            if (charLastTeamEl && data.team_name) {
+                                charLastTeamEl.textContent = `Last bid: ${data.team_name}`;
+                            }
                         }
+                    } catch (e) {
+                        // silent fail
+                    } finally {
+                        btn.disabled = false;
+                        btn.textContent = `+${amount}`;
                     }
-                } catch (e) {
-                    // silent fail
-                } finally {
-                    userBidBtn.disabled = false;
-                    userBidBtn.textContent = 'Bid Now 💰';
-                }
+                });
             });
         }
 
@@ -1138,9 +1152,18 @@
                     if (response.ok) {
                         sellCharacterBtn.textContent = '✅ Sold!';
                         setTimeout(() => {
-                            sellCharacterBtn.textContent = '🏷️ Sell Character';
-                            sellCharacterBtn.disabled = false;
-                        }, 2500);
+                            if (data.has_next && data.next_character) {
+                                // Auto-advance to next character
+                                renderCharacter(data.next_character);
+                                sellCharacterBtn.textContent = '🏷️ Sell Character';
+                                sellCharacterBtn.disabled = false;
+                            } else {
+                                // No more characters
+                                alert('No more active auctions! Auction cycle complete.');
+                                sellCharacterBtn.textContent = '🏷️ Sell Character';
+                                sellCharacterBtn.disabled = false;
+                            }
+                        }, 1500);
                     } else {
                         alert(data.message || 'Could not sell character');
                         sellCharacterBtn.textContent = '🏷️ Sell Character';
