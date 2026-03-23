@@ -269,7 +269,8 @@
             <nav class="nav">
                 <a href="{{ route('dashboard') }}" class="nav-link active">Dashboard</a>
                 <a href="{{ route('auction') }}" class="nav-link">Auction</a>
-                <a href="#" class="nav-link">Deck</a>
+                <a href="{{ route('deck') }}" class="nav-link">Deck</a>
+                <a href="{{ route('battleground') }}" class="nav-link">Battle Ground</a>
                 <a href="#" class="nav-link">Leaderboard</a>
             </nav>
         </div>
@@ -278,8 +279,8 @@
     <div class="container">
         <div class="topbar">
             <div>
-                <h1 class="title">User Dashboard</h1>
-                <p class="subtitle">Welcome back, {{ $user->name }}. Prepare your team for the next battle.</p>
+                <h1 class="title">🎮 Team Dashboard</h1>
+                <p class="subtitle">Welcome back, {{ $user->name }}. @if($teamInfo) Team: {{ $teamInfo->name }} @endif</p>
             </div>
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
@@ -289,71 +290,98 @@
 
         <div class="grid">
             <div class="card">
-                <p class="label">User Type</p>
-                <p class="value primary">{{ $user->role_id }}</p>
+                <p class="label">Team Name</p>
+                <p class="value primary">{{ $teamInfo->name ?? 'No Team' }}</p>
             </div>
             <div class="card">
-                <p class="label">Team ID</p>
-                <p class="value secondary">{{ $user->team_id ?? 'Not Assigned' }}</p>
+                <p class="label">Characters Owned</p>
+                <p class="value secondary">{{ $characterCount }}</p>
             </div>
             <div class="card">
-                <p class="label">Coins</p>
-                <p class="value gold">1200</p>
+                <p class="label">Total Investment</p>
+                <p class="value gold">{{ number_format($totalSpent) }} 💰</p>
             </div>
         </div>
 
+        @if($teamInfo && $teamInfo->description)
+        <div class="card" style="margin-bottom: 14px;">
+            <p class="label">Team Description</p>
+            <p style="margin: 8px 0 0; color: #4b5563; font-size: 0.95rem;">{{ $teamInfo->description }}</p>
+        </div>
+        @endif
+
         <div class="info-section">
-            <p class="section-title">Your Characters</p>
+            <p class="section-title">👥 Team Members ({{ $teamMembers->count() }})</p>
             <div class="roster">
+                @forelse($teamMembers as $member)
                 <div class="character-card">
-                    <p class="character-name">Valorian Knight</p>
-                    <p class="character-type">Tank</p>
-                    <div class="character-stats">
-                        <div class="stat-row">
-                            <span class="stat-label">HP:</span>
-                            <span class="stat-value">280</span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">DMG:</span>
-                            <span class="stat-value">65</span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">DEF:</span>
-                            <span class="stat-value">92</span>
-                        </div>
-                    </div>
+                    <p class="character-name">{{ $member->name }}</p>
+                    <p class="character-type">{{ $member->role_name }}</p>
+                    <p class="character-stats" style="margin-top: 4px;">
+                        @if($member->id === $user->id)
+                        <span style="background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700;">You</span>
+                        @endif
+                    </p>
                 </div>
-                <div class="character-card">
-                    <p class="character-name">Mystic Sage</p>
-                    <p class="character-type">Mage</p>
-                    <div class="character-stats">
-                        <div class="stat-row">
-                            <span class="stat-label">HP:</span>
-                            <span class="stat-value">140</span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">DMG:</span>
-                            <span class="stat-value">185</span>
-                        </div>
-                        <div class="stat-row">
-                            <span class="stat-label">SPD:</span>
-                            <span class="stat-value">88</span>
-                        </div>
-                    </div>
-                </div>
+                @empty
+                <p style="grid-column: 1/-1; color: var(--muted); text-align: center; padding: 20px;">No team members found.</p>
+                @endforelse
             </div>
         </div>
 
         <div class="info-section">
-            <p class="section-title">Coin Balance</p>
+            <p class="section-title">🃏 Your Deck Characters ({{ $characterCount }})</p>
+            @if($deckCharacters->isEmpty())
+            <div class="card" style="text-align: center; padding: 40px;">
+                <p style="font-size: 3rem; margin-bottom: 12px; opacity: 0.3;">🎴</p>
+                <p style="color: var(--muted); margin: 0;">No characters in your deck yet. Head to the auction to start bidding!</p>
+            </div>
+            @else
+            <div class="roster">
+                @foreach($deckCharacters as $character)
+                <div class="character-card">
+                    <p class="character-name">{{ $character->name }}</p>
+                    <p class="character-type">{{ $character->role_name ?? 'Unknown' }}</p>
+                    <div class="character-stats">
+                        <div class="stat-row">
+                            <span class="stat-label">❤️ HP:</span>
+                            <span class="stat-value">{{ $character->hp }}</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">⚔️ DMG:</span>
+                            <span class="stat-value">{{ $character->damage }}</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">💨 SPD:</span>
+                            <span class="stat-value">{{ $character->speed }}</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">🎯 RNG:</span>
+                            <span class="stat-value">{{ $character->range }}</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">💰 Cost:</span>
+                            <span class="stat-value">{{ $character->base_price }}</span>
+                        </div>
+                    </div>
+                </div>
+                @endforeach
+            </div>
+            @endif
+        </div>
+
+        <div class="info-section">
+            <p class="section-title">💰 Financial Stats</p>
             <div class="balance-section">
                 <div class="balance-card">
-                    <p class="label">Total Coins</p>
-                    <p class="value gold">1200</p>
+                    <p class="label">Total Investment</p>
+                    <p class="value gold">{{ number_format($totalSpent) }}</p>
+                    <p style="font-size: 0.75rem; color: var(--muted); margin-top: 6px;">Spent on {{ $characterCount }} character{{ $characterCount !== 1 ? 's' : '' }}</p>
                 </div>
                 <div class="balance-card">
-                    <p class="label">Spent on Auction</p>
-                    <p class="value danger">800</p>
+                    <p class="label">Average Cost per Character</p>
+                    <p class="value primary">{{ $characterCount > 0 ? number_format($totalSpent / $characterCount, 0) : '0' }}</p>
+                    <p style="font-size: 0.75rem; color: var(--muted); margin-top: 6px;">Avg. auction price</p>
                 </div>
             </div>
         </div>
