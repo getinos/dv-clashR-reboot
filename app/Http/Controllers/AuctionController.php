@@ -185,28 +185,47 @@ class AuctionController extends Controller
             return response()->json(['message' => 'Bidding is not open'], 422);
         }
 
-        $characterId = (int) Cache::get(self::AUCTION_CHARACTER_ID_KEY, 0);
+        $auctionId = (int) Cache::get(self::AUCTION_CHARACTER_ID_KEY, 0);
 
-        if (!$characterId) {
-            return response()->json(['message' => 'No active character'], 422);
+        if (!$auctionId) {
+            return response()->json(['message' => 'No active auction item'], 422);
         }
 
-        $priceKey = "auction_character_{$characterId}_price";
+        $auction = DB::table('auctions')->where('id', $auctionId)->where('status', 'active')->first();
+        if (!$auction) {
+            return response()->json(['message' => 'No active auction item'], 422);
+        }
 
-        // Initialise from DB if not yet in cache.
+        $characterId = (int) $auction->character_id;
+        $priceKey = "auction_{$auctionId}_price";
+
+        // Initialize from DB if not yet in cache.
         if (!Cache::has($priceKey)) {
-            $character = DB::table('characters')->where('id', $characterId)->first();
-            Cache::forever($priceKey, $character ? (int) $character->base_price : 0);
+            $startingPrice = (int) $auction->current_price;
+            if ($startingPrice <= 0) {
+                $character = DB::table('characters')->where('id', $characterId)->first();
+                $startingPrice = $character ? (int) $character->base_price : 0;
+            }
+            Cache::forever($priceKey, $startingPrice);
         }
 
-        $newPrice = (int) Cache::get($priceKey) + 100;
+        $amount = (int) $request->input('amount', 100);
+        $allowed = [25, 50, 75];
+        if (!in_array($amount, $allowed, true)) {
+            $amount = 100;
+        }
+
+        $newPrice = (int) Cache::get($priceKey) + $amount;
         Cache::forever($priceKey, $newPrice);
+
+        // persist to auction row
+        DB::table('auctions')->where('id', $auctionId)->update(['current_price' => $newPrice]);
 
         // Track the last team that placed a bid
         $teamId = $request->user()->team_id;
         $teamName = null;
         if ($teamId) {
-            Cache::forever("auction_character_{$characterId}_last_team_id", (int) $teamId);
+            Cache::forever("auction_{$auctionId}_last_team_id", (int) $teamId);
             $teamName = DB::table('teams')->where('id', $teamId)->value('name');
         }
 
@@ -230,28 +249,55 @@ class AuctionController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $characterId = (int) Cache::get(self::AUCTION_CHARACTER_ID_KEY, 0);
-        if (!$characterId) {
-            return response()->json(['message' => 'No active character'], 422);
+        $auctionId = (int) Cache::get(self::AUCTION_CHARACTER_ID_KEY, 0);
+        if (!$auctionId) {
+            return response()->json(['message' => 'No active auction item'], 422);
         }
 
-        $teamId = Cache::get("auction_character_{$characterId}_last_team_id");
+        $auction = DB::table('auctions')->where('id', $auctionId)->first();
+        if (!$auction) {
+            return response()->json(['message' => 'No active auction item'], 422);
+        }
+
+        $teamId = Cache::get("auction_{$auctionId}_last_team_id");
         if (!$teamId) {
             return response()->json(['message' => 'No bid placed yet — no winner'], 422);
         }
+
+        $characterId = (int) $auction->character_id;
 
         DB::table('caracter_deck')->updateOrInsert(
             ['caracter_id' => $characterId],
             ['caracter_id' => $characterId, 'team_id' => (int) $teamId]
         );
 
-        Cache::forget("auction_character_{$characterId}_price");
-        Cache::forget("auction_character_{$characterId}_last_team_id");
+        DB::table('auctions')->where('id', $auctionId)->update(['status' => 'sold', 'current_winner_team_id' => (int) $teamId]);
+
+        Cache::forget("auction_{$auctionId}_price");
+        Cache::forget("auction_{$auctionId}_last_team_id");
+        Cache::forget(self::AUCTION_CHARACTER_ID_KEY);
+
+        // Fetch next active auction for auto-advance
+        $nextAuction = DB::table('auctions')
+            ->join('characters', 'auctions.character_id', '=', 'characters.id')
+            ->leftJoin('character_roles', 'characters.character_role_id', '=', 'character_roles.id')
+            ->select('characters.*', 'character_roles.name as role_name', 'auctions.id as auction_id', 'auctions.status as auction_status', 'auctions.current_price as auction_current_price')
+            ->where('auctions.status', 'active')
+            ->orderBy('auctions.id')
+            ->first();
+
+        $nextCharacterPayload = null;
+        if ($nextAuction) {
+            Cache::forever(self::AUCTION_CHARACTER_ID_KEY, (int) $nextAuction->auction_id);
+            $nextCharacterPayload = $this->formatCharacter($nextAuction);
+        }
 
         return response()->json([
-            'message'      => 'Character sold! 🎉',
-            'character_id' => $characterId,
-            'team_id'      => (int) $teamId,
+            'message'           => 'Character sold! 🎉',
+            'character_id'      => $characterId,
+            'team_id'           => (int) $teamId,
+            'next_character'    => $nextCharacterPayload,
+            'has_next'          => $nextCharacterPayload !== null,
         ]);
     }
 
@@ -269,27 +315,77 @@ class AuctionController extends Controller
             ], 422);
         }
 
-        $characters = $this->getOrderedCharacters();
-        if ($characters->isEmpty()) {
+        $currentAuctionId = (int) Cache::get(self::AUCTION_CHARACTER_ID_KEY, 0);
+
+        if ($direction === 1) {
+            // NEXT button: activate next pending auction
+            $nextPendingAuction = DB::table('auctions')
+                ->where('id', '>', $currentAuctionId)
+                ->where('status', '!=', 'sold')
+                ->orderBy('id')
+                ->first();
+
+            if (!$nextPendingAuction) {
+                return response()->json([
+                    'message' => 'No more auctions available',
+                ], 422);
+            }
+
+            DB::table('auctions')->where('id', $nextPendingAuction->id)->update(['status' => 'active']);
+            Cache::forever(self::AUCTION_CHARACTER_ID_KEY, (int) $nextPendingAuction->id);
+
+            $targetAuction = DB::table('auctions')
+                ->join('characters', 'auctions.character_id', '=', 'characters.id')
+                ->leftJoin('character_roles', 'characters.character_role_id', '=', 'character_roles.id')
+                ->select('characters.*', 'character_roles.name as role_name', 'auctions.id as auction_id', 'auctions.status as auction_status', 'auctions.current_price as auction_current_price')
+                ->where('auctions.id', $nextPendingAuction->id)
+                ->first();
+
+            if (!$targetAuction) {
+                return response()->json([
+                    'message' => 'Could not load next auction',
+                ], 422);
+            }
+
+            $payload = $this->formatCharacter($targetAuction);
+            broadcast(new CharacterChanged($payload));
+
             return response()->json([
-                'message' => 'No characters available',
+                'message' => 'Next auction activated',
+                'active' => true,
+                'bid_active' => (bool) Cache::get(self::AUCTION_BID_ACTIVE_KEY, false),
+                'current_character' => $payload,
+            ]);
+        }
+
+        // PREVIOUS button: show previous auction entry (any status)
+        $previousAuction = DB::table('auctions')
+            ->where('id', '<', $currentAuctionId)
+            ->orderBy('id', 'desc')
+            ->first();
+
+        if (!$previousAuction) {
+            return response()->json([
+                'message' => 'No previous auctions available',
             ], 422);
         }
 
-        $currentCharacterId = (int) Cache::get(self::AUCTION_CHARACTER_ID_KEY, 0);
-        $currentIndex = $characters->search(fn ($character) => (int) $character->id === $currentCharacterId);
+        Cache::forever(self::AUCTION_CHARACTER_ID_KEY, (int) $previousAuction->id);
 
-        if ($currentIndex === false) {
-            $currentIndex = 0;
+        $targetAuction = DB::table('auctions')
+            ->join('characters', 'auctions.character_id', '=', 'characters.id')
+            ->leftJoin('character_roles', 'characters.character_role_id', '=', 'character_roles.id')
+            ->select('characters.*', 'character_roles.name as role_name', 'auctions.id as auction_id', 'auctions.status as auction_status', 'auctions.current_price as auction_current_price')
+            ->where('auctions.id', $previousAuction->id)
+            ->first();
+
+        if (!$targetAuction) {
+            return response()->json([
+                'message' => 'Could not load previous auction',
+            ], 422);
         }
 
-        $count = $characters->count();
-        $targetIndex = ($currentIndex + $direction + $count) % $count;
-        $targetCharacter = $characters->values()->get($targetIndex);
-
-        Cache::forever(self::AUCTION_CHARACTER_ID_KEY, (int) $targetCharacter->id);
-
-        $payload = $this->formatCharacter($targetCharacter);
+        $payload = $this->formatCharacter($targetAuction);
         broadcast(new CharacterChanged($payload));
 
         return response()->json([
@@ -302,10 +398,12 @@ class AuctionController extends Controller
 
     private function getOrderedCharacters(): Collection
     {
-        return DB::table('characters')
+        return DB::table('auctions')
+            ->join('characters', 'auctions.character_id', '=', 'characters.id')
             ->leftJoin('character_roles', 'characters.character_role_id', '=', 'character_roles.id')
-            ->select('characters.*', 'character_roles.name as role_name')
-            ->orderBy('characters.id')
+            ->select('characters.*', 'character_roles.name as role_name', 'auctions.id as auction_id', 'auctions.status as auction_status', 'auctions.current_price')
+            ->where('auctions.status', 'active')
+            ->orderBy('auctions.id')
             ->get();
     }
 
@@ -315,26 +413,28 @@ class AuctionController extends Controller
             return null;
         }
 
-        $cachedCharacterId = (int) Cache::get(self::AUCTION_CHARACTER_ID_KEY, 0);
-        $currentCharacter = $characters->first(fn ($character) => (int) $character->id === $cachedCharacterId);
+        $cachedAuctionId = (int) Cache::get(self::AUCTION_CHARACTER_ID_KEY, 0);
+        $currentCharacter = $characters->first(fn ($character) => (int) $character->auction_id === $cachedAuctionId);
 
         if ($currentCharacter) {
             return $currentCharacter;
         }
 
         $firstCharacter = $characters->first();
-        Cache::forever(self::AUCTION_CHARACTER_ID_KEY, (int) $firstCharacter->id);
+        if ($firstCharacter) {
+            Cache::forever(self::AUCTION_CHARACTER_ID_KEY, (int) $firstCharacter->auction_id);
+        }
 
         return $firstCharacter;
     }
 
     private function formatCharacter(object $character): array
     {
-        $priceKey  = "auction_character_{$character->id}_price";
-        $livePrice = Cache::has($priceKey) ? (int) Cache::get($priceKey) : (int) $character->base_price;
+        $priceKey  = "auction_{$character->auction_id}_price";
+        $livePrice = Cache::has($priceKey) ? (int) Cache::get($priceKey) : (int) ($character->auction_current_price ?? $character->base_price);
 
         // figure out the last bidding team if any
-        $lastTeamId = Cache::get("auction_character_{$character->id}_last_team_id");
+        $lastTeamId = Cache::get("auction_{$character->auction_id}_last_team_id");
         $lastTeamName = null;
         if ($lastTeamId) {
             $lastTeamName = DB::table('teams')->where('id', $lastTeamId)->value('name');
@@ -342,6 +442,7 @@ class AuctionController extends Controller
 
         return [
             'id' => (int) $character->id,
+            'auction_id' => (int) $character->auction_id,
             'name' => $character->name,
             'image' => $character->image,
             'description' => $character->description,
