@@ -19,8 +19,10 @@ Route::middleware('auth')->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('deck', [DeckController::class, 'index'])->name('deck');
     Route::get('battleground', [BattleGroundController::class, 'index'])->name('battleground');
+    Route::post('assign-teams', [BattleGroundController::class, 'assignTeams'])->name('battleground.assignTeams');
     Route::post('battleground/deploy', [BattleGroundController::class, 'deploy'])->name('battleground.deploy');
     Route::get('battleground/state', [BattleGroundController::class, 'state'])->name('battleground.state');
+    Route::post('battleground/update-positions', [BattleGroundController::class, 'updateBattlePositions'])->name('battleground.updatePositions');
     Route::get('auction', [AuctionController::class, 'index'])->name('auction');
     Route::get('auction/status', [AuctionController::class, 'status'])->name('auction.status');
     Route::post('auction/start', [AuctionController::class, 'start'])->name('auction.start');
