@@ -41,6 +41,8 @@ class DatabaseSeeder extends Seeder
         // additionally run individual seeders
         $this->call(TeamLeaderSeeder::class);
         $this->call(TeamLeader2Seeder::class);
+        $this->call(TeamLeaders3To8Seeder::class);
+        $this->call(TeamSeeder::class);
         $this->call(CharacterRolesSeeder::class);
         $this->call(CharacterSeeder::class);
 
