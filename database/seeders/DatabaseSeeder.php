@@ -45,6 +45,7 @@ class DatabaseSeeder extends Seeder
         $this->call(TeamSeeder::class);
         $this->call(CharacterRolesSeeder::class);
         $this->call(CharacterSeeder::class);
+        $this->call(BroadcastUserSeeder::class);
 
         // Example test user
         // User::factory(10)->create();
