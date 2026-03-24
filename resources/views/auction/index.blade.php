@@ -606,11 +606,16 @@
         <div class="site-header-inner">
             <div class="brand">Auction Grid Battle</div>
             <nav class="nav">
-                <a href="{{ route('dashboard') }}" class="nav-link">Dashboard</a>
-                <a href="{{ route('auction') }}" class="nav-link active">Auction</a>
-                <a href="{{ route('deck') }}" class="nav-link">Deck</a>
-                <a href="{{ route('battleground') }}" class="nav-link">Battle Ground</a>
-                <a href="#" class="nav-link">Leaderboard</a>
+                @if(auth()->check() && auth()->user()->role_id === 3)
+                    <a href="{{ route('auction') }}" class="nav-link active">Auction</a>
+                    <a href="{{ route('battleground') }}" class="nav-link">Battle Ground</a>
+                @else
+                    <a href="{{ route('dashboard') }}" class="nav-link">Dashboard</a>
+                    <a href="{{ route('auction') }}" class="nav-link active">Auction</a>
+                    <a href="{{ route('deck') }}" class="nav-link">Deck</a>
+                    <a href="{{ route('battleground') }}" class="nav-link">Battle Ground</a>
+                    <a href="#" class="nav-link">Leaderboard</a>
+                @endif
             </nav>
         </div>
     </header>

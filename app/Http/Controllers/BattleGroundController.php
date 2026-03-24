@@ -59,6 +59,10 @@ class BattleGroundController extends Controller
             $canViewDeck = (int) $teamId === (int) $currentBattle->team_a_id || (int) $teamId === (int) $currentBattle->team_b_id;
         }
 
+        if ($user->role_id === 3) {
+            return view('battleground.broadcast.game');
+        }
+
         return view('battleground.index', [
             'user' => $user,
             'isAdmin' => $isAdmin,
@@ -234,6 +238,28 @@ class BattleGroundController extends Controller
     public function state(): JsonResponse
     {
         $deployments = BattlegroundDeployment::with('character')->get();
+        $currentBattle = CurrentBattle::first();
+
+        $teams = [
+            'team1' => ['id' => null, 'name' => 'Team 1'],
+            'team2' => ['id' => null, 'name' => 'Team 2'],
+        ];
+
+        if ($currentBattle) {
+            $teamRecords = DB::table('teams')
+                ->whereIn('id', [(int) $currentBattle->team_a_id, (int) $currentBattle->team_b_id])
+                ->pluck('name', 'id')
+                ->toArray();
+
+            $teams['team1'] = [
+                'id' => (int) $currentBattle->team_a_id,
+                'name' => $teamRecords[$currentBattle->team_a_id] ?? 'Team A',
+            ];
+            $teams['team2'] = [
+                'id' => (int) $currentBattle->team_b_id,
+                'name' => $teamRecords[$currentBattle->team_b_id] ?? 'Team B',
+            ];
+        }
 
         $data = $deployments->map(function (BattlegroundDeployment $deployment) {
             $character = $deployment->character;
@@ -243,6 +269,8 @@ class BattleGroundController extends Controller
                 'team_id' => $deployment->team_id,
                 'grid_x' => $deployment->grid_x,
                 'grid_y' => $deployment->grid_y,
+                'current_hp' => $deployment->current_hp,
+                'status' => $deployment->status,
                 'character' => $character ? [
                     'id' => $character->id,
                     'name' => $character->name,
@@ -254,12 +282,20 @@ class BattleGroundController extends Controller
                     'range' => $character->range,
                     'cooldown' => $character->cooldown,
                     'abilities' => $character->abilities,
+                    'role' => $character->role ?? $character->role_name ?? null,
+                    'role_name' => $character->role_name ?? null,
                 ] : null,
             ];
         })->values();
 
         return response()->json([
             'deployments' => $data,
+            'teams' => $teams,
+            'current_battle' => $currentBattle ? [
+                'team_a_id' => (int) $currentBattle->team_a_id,
+                'team_b_id' => (int) $currentBattle->team_b_id,
+                'status' => $currentBattle->status,
+            ] : null,
         ]);
     }
 

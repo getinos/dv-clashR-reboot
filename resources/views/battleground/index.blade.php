@@ -646,11 +646,16 @@
         <div class="site-header-inner">
             <div class="brand">⚔️ Auction Grid Battle</div>
             <nav class="nav">
-                <a href="{{ route('dashboard') }}" class="nav-link">Dashboard</a>
-                <a href="{{ route('auction') }}" class="nav-link">Auction</a>
-                <a href="{{ route('deck') }}" class="nav-link">Deck</a>
-                <a href="{{ route('battleground') }}" class="nav-link active">Battle Ground</a>
-                <a href="#" class="nav-link">Leaderboard</a>
+                @if(auth()->check() && auth()->user()->role_id === 3)
+                    <a href="{{ route('auction') }}" class="nav-link">Auction</a>
+                    <a href="{{ route('battleground') }}" class="nav-link active">Battle Ground</a>
+                @else
+                    <a href="{{ route('dashboard') }}" class="nav-link">Dashboard</a>
+                    <a href="{{ route('auction') }}" class="nav-link">Auction</a>
+                    <a href="{{ route('deck') }}" class="nav-link">Deck</a>
+                    <a href="{{ route('battleground') }}" class="nav-link active">Battle Ground</a>
+                    <a href="#" class="nav-link">Leaderboard</a>
+                @endif
             </nav>
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
@@ -1212,7 +1217,7 @@
         }
 
         // Live updates toggle: set true to enable WebSocket + polling updates.
-        const battlegroundLiveUpdatesEnabled = true;
+        const battlegroundLiveUpdatesEnabled = false;
 
         // WebSocket listener + polling fallback
         window.addEventListener('load', () => {
@@ -1252,85 +1257,10 @@
             }
         });
 
-        // Movement timer: update character positions every second
-        async function updateCharacterPositions() {
-            try {
-                const response = await fetch('{{ route('battleground.updatePositions') }}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken,
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                });
+        // Movement and position updates are disabled in deployment-only mode.
+        // This page now only loads /battleground/state and handles deployment UI.
+        // Real-time movement logic remains centralized in the battleground engine endpoints.
 
-                if (!response.ok) return;
-
-                const data = await response.json();
-                if (!data.updated_positions || data.updated_positions.length === 0) return;
-
-                // Log attack events
-                if (data.attack_log && data.attack_log.length > 0) {
-                    console.log('⚔️ Attacks:', data.attack_log);
-                    data.attack_log.forEach(a => {
-                        console.log(`  ${a.attacker_id} attacked ${a.target_id} for ${a.damage} damage (target HP: ${a.target_hp})`);
-                    });
-                }
-
-                // Clear current board state
-                Object.keys(deployedCharacters).forEach(key => {
-                    const [x, y] = key.split(',').map(Number);
-                    const cell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
-                    if (cell) {
-                        cell.classList.remove('occupied');
-                        const avatar = cell.querySelector('.deployed-character');
-                        if (avatar) cell.removeChild(avatar);
-                    }
-                });
-                deployedCharacters = {};
-
-                // Redraw all positions from server
-                data.updated_positions.forEach(pos => {
-                    // Skip dead characters
-                    if (pos.status === 'dead') return;
-
-                    deployedCharacters[`${pos.grid_x},${pos.grid_y}`] = pos.character_id;
-                    
-                    const cell = document.querySelector(`[data-x="${pos.grid_x}"][data-y="${pos.grid_y}"]`);
-                    if (!cell) return;
-
-                    cell.classList.add('occupied');
-                    
-                    // Create placeholder character object for rendering
-                    const character = {
-                        id: pos.character_id,
-                        name: 'Char ' + pos.character_id,
-                    };
-
-                    let imageSrc = null;
-                    const avatar = document.createElement('div');
-                    avatar.className = 'deployed-character';
-                    avatar.innerHTML = `
-                        <div class="deployed-avatar">
-                            C${pos.character_id}
-                        </div>
-                        <div class="deployed-name">Moving</div>
-                    `;
-                    cell.appendChild(avatar);
-                });
-
-                console.log('✅ Positions updated:', data.moved, 'moved,', data.attacked, 'attacked');
-            } catch (e) {
-                console.warn('⚠️ Failed to update character positions', e);
-            }
-        }
-
-        // Start movement tick timer after page loads
-        window.addEventListener('load', () => {
-            setTimeout(() => {
-                setInterval(updateCharacterPositions, 1000);
-            }, 2000);
-        });
 
         // Admin character panel display
         async function updateCharacterPanels() {
